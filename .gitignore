@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 __pycache__
 *.pyc
+
+# Datasets
+speed/

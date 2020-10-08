@@ -3,7 +3,7 @@
 import numpy as np
 import json
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 from matplotlib import pyplot as plt
 
 # deep learning framework imports
@@ -157,6 +157,12 @@ class SatellitePoseEstimationDataset:
                                             [-0.37, -0.285, 0.295, 1],
                                             [0.37, -0.285, 0.295, 1]]) 
 
+        # Number of images within each subfolder of SPEED dataset
+        self.n_train = 12000
+        self.n_test = 2998
+        self.n_real = 5
+        self.n_real_test = 300
+
     def get_image(self, i=0, split='train'):
 
         """ Loading image as PIL image. """
@@ -220,6 +226,29 @@ class SatellitePoseEstimationDataset:
             ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+        return
+
+    def preprocess(self, partition='train', ax=None):
+        """ Preprocessing images and saving with wireframe """
+
+        if partition == 'train':
+            for i in range(self.n_train):
+                img = self.get_image(i)
+                img_name = self.partitions[partition][i]
+                preprocess_filename = '../speed_wireframe/' + partition + '/' + img_name
+                img1 = ImageDraw.Draw(img)
+                
+                q, r = self.get_pose(i)
+                xa, ya = project_keypoints(q, r, self.wireframe_vertices)
+                shape = [(xa[0], ya[0]), (xa[1], ya[1]), (xa[2], ya[2]), (xa[3], ya[3]), (xa[0], ya[0]), (xa[4], ya[4])]
+                img1.line(shape, fill="lime", width=0)
+                shape = [(xa[5], ya[5]), (xa[6], ya[6]), (xa[7], ya[7]), (xa[4], ya[4]), (xa[5], ya[5]), (xa[1], ya[1])]
+                img1.line(shape, fill="lime", width=0)
+                shape = [(xa[6], ya[6]), (xa[2], ya[2])]
+                img1.line(shape, fill="lime", width=0)
+                shape = [(xa[7], ya[7]), (xa[3], ya[3])]
+                img1.line(shape, fill="lime", width=0)
+                img.save(preprocess_filename)
         return
 
 if has_pytorch:

@@ -180,7 +180,7 @@ class SatellitePoseEstimationDataset:
         q, r = self.labels[img_id]['q'], self.labels[img_id]['r']
         return q, r
 
-    def visualize(self, i, partition='train', ax=None):
+    def visualize(self, i, partition='train', ax=None, pose=True, bb=False, db=False):
 
         """ Visualizing image, with ground truth pose with axes projected to training image. """
 
@@ -191,17 +191,49 @@ class SatellitePoseEstimationDataset:
 
         # no pose label for test
         if partition == 'train':
-            q, r = self.get_pose(i)
-            xa, ya = project(q, r) # NOTE: first coordinates are those of the interface point (body frame origin)
-            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=30, color='r')
-            ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=30, color='g')
-            ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=30, color='b')
+            if pose:
+                q, r = self.get_pose(i)
+                xa, ya = project(q, r) # NOTE: first coordinates are those of the interface point (body frame origin)
+                ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=30, color='r')
+                ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=30, color='g')
+                ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=30, color='b')
+            if bb or db:
+                q, r = self.get_pose(i)
+                xa, ya = project_keypoints(q, r, self.wireframe_vertices)
+                if bb:
+                    ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
 
+                    ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+
+                    ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+                    ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+                if db:
+                    x_min = np.min(xa)
+                    x_max = np.max(xa)
+                    y_min = np.min(ya)
+                    y_max = np.max(ya)
+                    
+                    ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
+                    ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
+                    ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
+                    ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
         return
 
     
     def visualize_wireframe(self, i, partition='train', ax=None):
-        """ Visualizing image, with 3D TANGO wireframe to image plane """
+        """ DEPRECATED
+            Visualizing image, with 3D TANGO wireframe to image plane
+            db: overlay detection box
+            bb: overlay bounding box (wireframe)
+        """
 
         if ax is None:
             ax = plt.gca()
@@ -227,7 +259,7 @@ class SatellitePoseEstimationDataset:
             ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
         return
-
+            
     def preprocess(self, partition='train', ax=None):
         """ Preprocessing images and saving with wireframe """
 

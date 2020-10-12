@@ -6,22 +6,6 @@ import os
 from PIL import Image, ImageDraw
 from matplotlib import pyplot as plt
 
-# deep learning framework imports
-try:
-    from tensorflow.keras.utils import Sequence
-    from tensorflow.keras.preprocessing import image as keras_image
-    has_tf = True
-except ModuleNotFoundError:
-    has_tf = False
-
-try:
-    import torch
-    from torch.utils.data import Dataset
-    from torchvision import transforms
-    has_pytorch = True
-except ImportError:
-    has_pytorch = False
-
 
 class Camera:
 
@@ -144,9 +128,10 @@ class SatellitePoseEstimationDataset:
 
     """ Class for dataset inspection: easily accessing single images, and corresponding ground truth pose data. """
 
-    def __init__(self, root_dir='/datasets/speed_debug'):
+    def __init__(self, root_dir='/datasets/speed_debug', annotation_dir='../annotations/'):
         self.partitions, self.labels = process_json_dataset(root_dir)
         self.root_dir = root_dir
+        self.annotations_dir = annotation_dir
         # 8 TANGO vertices in body frame (homogeneous coordinates): [A, B, C, D, E, F, G, H]
         self.wireframe_vertices = np.array([[0.37, 0.285, 0, 1],
                                             [-0.37, 0.285, 0, 1],
@@ -179,6 +164,14 @@ class SatellitePoseEstimationDataset:
         img_id = self.partitions['train'][i]
         q, r = self.labels[img_id]['q'], self.labels[img_id]['r']
         return q, r
+
+    def get_label(self, i=0, split='train'):
+
+        """ Getting annotation for image """
+
+        img_id = self.partitions[split][i]
+        return self.labels[img_id]
+    
 
     def visualize(self, i, partition='train', ax=None, pose=True, bb=False, db=False):
 
@@ -227,39 +220,36 @@ class SatellitePoseEstimationDataset:
                     ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
         return
 
-    
-    def visualize_wireframe(self, i, partition='train', ax=None):
-        """ DEPRECATED
-            Visualizing image, with 3D TANGO wireframe to image plane
-            db: overlay detection box
-            bb: overlay bounding box (wireframe)
-        """
+            
+    def annotate(self, partition='train'):
 
-        if ax is None:
-            ax = plt.gca()
-        img = self.get_image(i)
-        ax.imshow(img)
+        """ Annotating images with wireframe and detection boxes (bbox) ground truths """
 
-        # no pose label for test
-        if partition == 'train':
+        # Read original labels from file
+        original = "original_" + partition + ".json"
+        with open(os.path.join(self.annotations_dir, original), 'r') as f:
+            image_labels = json.load(f)
+
+        # Output updated labels to new annotation file
+        new = partition + ".json"
+
+        for i, img in enumerate(image_labels):
             q, r = self.get_pose(i)
             xa, ya = project_keypoints(q, r, self.wireframe_vertices)
-            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+            x_min = np.min(xa)
+            x_max = np.max(xa)
+            y_min = np.min(ya)
+            y_max = np.max(ya)
 
-            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+            img['bbox'] = [x_min, y_min, x_max, y_max]
+            img['wireframe'] = [xa[0], ya[0], xa[1], ya[1], xa[2], ya[2], xa[3], ya[3], xa[4], ya[4], xa[5], ya[5], xa[6], ya[6], xa[7], ya[7]]
 
-            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+        new_labels_json = json.dumps(image_labels, indent = 4) 
+        with open(os.path.join(self.annotations_dir, new), 'w') as out:
+            out.write(new_labels_json)
+
         return
-            
+
     def preprocess(self, partition='train', ax=None):
         """ Preprocessing images and saving with wireframe """
 
@@ -283,132 +273,3 @@ class SatellitePoseEstimationDataset:
                 img.save(preprocess_filename)
         return
 
-if has_pytorch:
-    class PyTorchSatellitePoseEstimationDataset(Dataset):
-
-        """ SPEED dataset that can be used with DataLoader for PyTorch training. """
-
-        def __init__(self, split='train', speed_root='', transform=None):
-
-            if not has_pytorch:
-                raise ImportError('Pytorch was not imported successfully!')
-
-            if split not in {'train', 'test', 'real_test'}:
-                raise ValueError('Invalid split, has to be either \'train\', \'test\' or \'real_test\'')
-
-            with open(os.path.join(speed_root, split + '.json'), 'r') as f:
-                label_list = json.load(f)
-
-            self.sample_ids = [label['filename'] for label in label_list]
-            self.train = split == 'train'
-
-            if self.train:
-                self.labels = {label['filename']: {'q': label['q_vbs2tango'], 'r': label['r_Vo2To_vbs_true']}
-                               for label in label_list}
-            self.image_root = os.path.join(speed_root, 'images', split)
-
-            self.transform = transform
-
-        def __len__(self):
-            return len(self.sample_ids)
-
-        def __getitem__(self, idx):
-            sample_id = self.sample_ids[idx]
-            img_name = os.path.join(self.image_root, sample_id)
-
-            # note: despite grayscale images, we are converting to 3 channels here,
-            # since most pre-trained networks expect 3 channel input
-            pil_image = Image.open(img_name).convert('RGB')
-
-            if self.train:
-                q, r = self.labels[sample_id]['q'], self.labels[sample_id]['r']
-                y = np.concatenate([q, r])
-            else:
-                y = sample_id
-
-            if self.transform is not None:
-                torch_image = self.transform(pil_image)
-            else:
-                torch_image = pil_image
-
-            return torch_image, y
-else:
-    class PyTorchSatellitePoseEstimationDataset:
-        def __init__(self, *args, **kwargs):
-            raise ImportError('Pytorch is not available!')
-
-if has_tf:
-    class KerasDataGenerator(Sequence):
-
-        """ DataGenerator for Keras to be used with fit_generator (https://keras.io/models/sequential/#fit_generator)"""
-
-        def __init__(self, preprocessor, label_list, speed_root, batch_size=32, dim=(224, 224), n_channels=3, shuffle=True):
-
-            # loading dataset
-            self.image_root = os.path.join(speed_root, 'images', 'train')
-
-            # Initialization
-            self.preprocessor = preprocessor
-            self.dim = dim
-            self.batch_size = batch_size
-            self.labels = self.labels = {label['filename']: {'q': label['q_vbs2tango'], 'r': label['r_Vo2To_vbs_true']}
-                                         for label in label_list}
-            self.list_IDs = [label['filename'] for label in label_list]
-            self.n_channels = n_channels
-            self.shuffle = shuffle
-            self.indexes = None
-            self.on_epoch_end()
-
-        def __len__(self):
-
-            """ Denotes the number of batches per epoch. """
-
-            return int(np.floor(len(self.list_IDs) / self.batch_size))
-
-        def __getitem__(self, index):
-
-            """ Generate one batch of data """
-
-            # Generate indexes of the batch
-            indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
-
-            # Find list of IDs
-            list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
-            # Generate data
-            X, y = self.__data_generation(list_IDs_temp)
-
-            return X, y
-
-        def on_epoch_end(self):
-
-            """ Updates indexes after each epoch """
-
-            self.indexes = np.arange(len(self.list_IDs))
-            if self.shuffle:
-                np.random.shuffle(self.indexes)
-
-        def __data_generation(self, list_IDs_temp):
-
-            """ Generates data containing batch_size samples """
-
-            # Initialization
-            X = np.empty((self.batch_size, *self.dim, self.n_channels))
-            y = np.empty((self.batch_size, 7), dtype=float)
-
-            # Generate data
-            for i, ID in enumerate(list_IDs_temp):
-                img_path = os.path.join(self.image_root, ID)
-                img = keras_image.load_img(img_path, target_size=(224, 224))
-                x = keras_image.img_to_array(img)
-                x = self.preprocessor(x)
-                X[i,] = x
-
-                q, r = self.labels[ID]['q'], self.labels[ID]['r']
-                y[i] = np.concatenate([q, r])
-
-            return X, y
-else:
-    class KerasDataGenerator:
-        def __init__(self, *args, **kwargs):
-            raise ImportError('tensorflow.keras is not available! Please install tensorflow.')

@@ -111,6 +111,46 @@ def project(q, r):
         x, y = (points_image_plane[0], points_image_plane[1])
         return x, y
 
+def visualize_tar(img, target, ax=None):
+        """ Visualizing image, with ground truth pose with axes projected to training image. """
+
+        # img, _ = self[idx]
+        # target = self.labels[idx]
+
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(img)        
+
+        if len(target) == 4:
+            x_min, y_min, x_max, y_max = target
+            ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
+
+        elif len(target) == 16:
+            xa = [target[i] for i in range(0, 16, 2)]
+            ya = [target[i] for i in range(1, 16, 2)]
+            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+
+        else:
+            print("Target error")
+
+        return
+
 
 class SatellitePoseEstimationDataset:
 
@@ -226,7 +266,7 @@ class SpeedDataset(Dataset):
         self.train = split == 'train'
 
         if self.train:
-            self.labels = [{'q': label['q_vbs2tango'], 'r': label['r_Vo2To_vbs_true'], 'bbox': label['bbox']} for label in label_list]
+            self.labels = [{'q': label['q_vbs2tango'], 'r': label['r_Vo2To_vbs_true'], 'bbox': label['bbox'], 'wireframe': label['wireframe']} for label in label_list]
         
             if sanity_check is not None: # to overfit network on one training image
                 self.sample_ids = [self.sample_ids[sanity_check]]
@@ -249,8 +289,8 @@ class SpeedDataset(Dataset):
         pil_image = Image.open(img_name).convert('RGB')
 
         if self.train:
-            q, r, bbox = self.labels[idx]['q'], self.labels[idx]['r'], self.labels[idx]['bbox']
-            y = np.concatenate([q, r, bbox])
+            q, r, bbox, wireframe = self.labels[idx]['q'], self.labels[idx]['r'], self.labels[idx]['bbox'], self.labels[idx]['wireframe']
+            y = np.concatenate([q, r, bbox, wireframe])
         else:
             y = self.sample_ids[idx]
 
@@ -260,4 +300,3 @@ class SpeedDataset(Dataset):
             torch_image = pil_image
 
         return torch_image, y
-

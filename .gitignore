@@ -134,3 +134,4 @@ __pycache__
 # Datasets
 speed/
 speed_wireframe/
+weights/

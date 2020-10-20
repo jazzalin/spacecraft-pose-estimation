@@ -88,16 +88,12 @@ def quat2dcm(q):
     return dcm
 
 
-def project(q, r):
+def project(q, r, K, points):
 
         """ Projecting points to image frame to draw axes """
 
         # reference points in satellite frame for drawing axes
-        p_axes = np.array([[0, 0, 0, 1],
-                           [1, 0, 0, 1],
-                           [0, 1, 0, 1],
-                           [0, 0, 1, 1]])
-        points_body = np.transpose(p_axes)
+        points_body = points.T
 
         # transformation to camera frame
         pose_mat = np.hstack((np.transpose(quat2dcm(q)), np.expand_dims(r, 1)))
@@ -107,7 +103,7 @@ def project(q, r):
         points_camera_frame = p_cam / p_cam[2]
 
         # projection to image plane
-        points_image_plane = Camera.K.dot(points_camera_frame)
+        points_image_plane = K.dot(points_camera_frame)
 
         x, y = (points_image_plane[0], points_image_plane[1])
         return x, y
@@ -152,7 +148,7 @@ def visualize_tar(img, target, ax=None):
 
         return
 
-
+# TODO: cleanup
 class SatellitePoseEstimationDataset:
 
     """ Class for dataset inspection: easily accessing single images, and corresponding ground truth pose data.
@@ -277,6 +273,9 @@ class SpeedDataset(Dataset):
         self.image_root = os.path.join(speed_root, 'images', split)
 
         self.transform = transform
+        self.wireframe_vertices = np.array([[0.37, 0.285, 0, 1],[-0.37, 0.285, 0, 1],[-0.37, -0.285, 0, 1],[0.37, -0.285, 0, 1],
+                            [0.37, 0.285, 0.295, 1],[-0.37, 0.285, 0.295, 1],[-0.37, -0.285, 0.295, 1],[0.37, -0.285, 0.295, 1]]) 
+        self.axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
 
     def __len__(self):
         return len(self.sample_ids)
@@ -301,3 +300,39 @@ class SpeedDataset(Dataset):
             torch_image = pil_image
 
         return torch_image, y
+    
+    def visualize_output(self, img, label, t, att, K, bbox=False):
+        """ Visualizing image, with ground truth pose with axes projected to training image. """
+
+        # if ax is None:
+        #     ax = plt.gca()
+        fig, ax = plt.subplots(1, 2)
+        atts = [label['q'], att]
+        ts = [label['r'], t]
+
+        for i in range(2):
+            # fig.add_subplot(2, 1, i+1)
+            ax[i].imshow(img)
+
+            xa, ya = project(atts[i], ts[i], K, self.axes_vertices)
+            ax[i].arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
+            ax[i].arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
+            ax[i].arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')
+
+            if bbox:
+                xa, ya = project(atts[i], ts[i], K, self.wireframe_vertices)
+                ax[i].arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+
+                ax[i].arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+
+                ax[i].arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+                ax[i].arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+        return

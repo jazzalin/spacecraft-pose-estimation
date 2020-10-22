@@ -1,2 +1,2 @@
 # spacecraft-pose-estimation
-Segmentation-driven spacecraft pose estimation
+Not segmentation-driven spacecraft pose estimation

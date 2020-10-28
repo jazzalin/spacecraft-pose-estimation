@@ -159,7 +159,7 @@ class SpeedDataset(Dataset):
 
     """ SPEED dataset that can be used with DataLoader for PyTorch training. """
 
-    def __init__(self, split='train', speed_root='', annotations_root='', input_size=(256,256), transform=None, sanity_check=None):
+    def __init__(self, split='train', speed_root='', annotations_root='', input_size=(256,256), split_index=None, transform=None, sanity_check=None):
 
         if split not in {'train', 'test', 'real_test'}:
             raise ValueError('Invalid split, has to be either \'train\', \'test\' or \'real_test\'')
@@ -170,6 +170,7 @@ class SpeedDataset(Dataset):
         self.sample_ids = [label['filename'] for label in label_list]
 
         self.train = split == 'train'
+        split_idx = -1 if split_index is None else split_index
 
         if self.train:
             self.labels = [{'q': label['q_vbs2tango'], 'r': label['r_Vo2To_vbs_true'], 'bbox': label['bbox'], 'wireframe': label['wireframe']} for label in label_list]
@@ -177,6 +178,9 @@ class SpeedDataset(Dataset):
             if sanity_check is not None: # to overfit network on one training image
                 self.sample_ids = [self.sample_ids[sanity_check]]
                 self.labels = [self.labels[sanity_check]]
+            else:
+                self.sample_ids = self.sample_ids[:split_idx]
+                self.labels = self.labels[:split_idx]
 
             
         self.image_root = os.path.join(speed_root, 'images', split)
@@ -220,8 +224,8 @@ class SpeedDataset(Dataset):
         # if ax is None:
         #     ax = plt.gca()
         fig, ax = plt.subplots(1, 2)
-        atts = [label['q'], att]
-        ts = [label['r'], t]
+        atts = [label[:4], att]
+        ts = [label[4:7], t]
 
         for i in range(2):
             # fig.add_subplot(2, 1, i+1)

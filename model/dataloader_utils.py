@@ -154,6 +154,65 @@ def visualize_tar(img, target, ax=None):
 
         return
 
+def visualize_tar2(img, target, bbox=False, db=False, ax=None):
+        """ Visualizing image, with ground truth pose with axes projected to training image. """
+
+        # img, _ = self[idx]
+        # target = self.labels[idx]
+
+        fx = 0.0176  # focal length[m]
+        fy = 0.0176  # focal length[m]
+        nu = 1920  # number of horizontal[pixels]
+        nv = 1200  # number of vertical[pixels]
+        ppx = 5.86e-6  # horizontal pixel pitch[m / pixel]
+        ppy = ppx  # vertical pixel pitch[m / pixel]
+        fpx = fx / ppx  # horizontal focal length[pixels]
+        fpy = fy / ppy  # vertical focal length[pixels]
+        k = [[fpx,   0, nu / 2],
+            [0,   fpy, nv / 2],
+            [0,     0,      1]]
+        K = np.array(k)
+        axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
+
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(img)
+
+        target_q, target_r, target_bb, target_db = target
+
+        xa, ya = project(target_q, target_r, K, axes_vertices)
+        ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
+        ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
+        ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')              
+
+        if db == True:
+            x_min, y_min, x_max, y_max = target_db
+            ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
+
+        if bbox == True:
+            xa = [target_bb[i] for i in range(0, 16, 2)]
+            ya = [target_bb[i] for i in range(1, 16, 2)]
+            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+
+
+        return
+
 
 class SpeedDataset(Dataset):
 

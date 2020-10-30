@@ -94,15 +94,22 @@ def project(q, r):
 
         # transformation to camera frame
         pose_mat = np.hstack((np.transpose(quat2dcm(q)), np.expand_dims(r, 1)))
+        print("points_body: ", points_body)
+        print("pose_mat: ", pose_mat)
         p_cam = np.dot(pose_mat, points_body)
+        print("p_cam: ", p_cam)
 
         # getting homogeneous coordinates
         points_camera_frame = p_cam / p_cam[2]
+        print("points_camera_frame: ", points_camera_frame)
 
         # projection to image plane
         points_image_plane = Camera.K.dot(points_camera_frame)
+        print("points_image_plane: ", points_image_plane)
 
         x, y = (points_image_plane[0], points_image_plane[1])
+        print("x: ", x)
+        print("y: ", y)
         return x, y
 
 

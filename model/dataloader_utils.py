@@ -154,7 +154,19 @@ def visualize_tar(img, target, ax=None):
 
         return
 
-def visualize_tar2(img, target, bbox=False, db=False, ax=None):
+def scalePoseVector(xa, ya, factor):
+    # red - x, green - y, blue - z
+    # input format: xa contains four x-coordinates (origin, x, y, z)
+    # input format: ya contains four y-coordinates (origin, x, y, z)
+    # input format: factor should be greater than zero (less than 1 for scale down)
+    for i in range(1,4):
+        xa[i] = (xa[i] - xa[0]) * factor + xa[0]
+        ya[i] = (ya[i] - ya[0]) * factor + ya[0]
+
+    return xa, ya
+
+
+def visualize_tar2(img, target, size, factor=1, bbox=False, db=False, ax=None):
         """ Visualizing image, with ground truth pose with axes projected to training image. """
 
         # img, _ = self[idx]
@@ -171,7 +183,12 @@ def visualize_tar2(img, target, bbox=False, db=False, ax=None):
         k = [[fpx,   0, nu / 2],
             [0,   fpy, nv / 2],
             [0,     0,      1]]
-        K = np.array(k)
+        img_size=(1920,1200)
+        scale = np.array([[size[0]/img_size[0], 0, 0],
+                      [0, size[1]/img_size[1], 0],
+                      [0, 0, 1]])
+        K = np.dot(scale, np.array(k))
+        # K = np.array(k)
         axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
 
         if ax is None:
@@ -181,6 +198,7 @@ def visualize_tar2(img, target, bbox=False, db=False, ax=None):
         target_q, target_r, target_bb, target_db = target
 
         xa, ya = project(target_q, target_r, K, axes_vertices)
+        xa, ya = scalePoseVector(xa,ya,factor)
         ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
         ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
         ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')              

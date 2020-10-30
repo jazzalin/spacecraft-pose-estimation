@@ -267,8 +267,9 @@ class SpeedDataset(Dataset):
                             [0.37, 0.285, 0.295, 1],[-0.37, 0.285, 0.295, 1],[-0.37, -0.285, 0.295, 1],[0.37, -0.285, 0.295, 1]]) 
         self.axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
 
+        self.input_size = input_size
         # Camera model
-        self.camera = Camera(input_size=input_size)
+        self.camera = Camera(input_size=self.input_size)
     
 
     def __len__(self):
@@ -289,7 +290,15 @@ class SpeedDataset(Dataset):
             y = self.sample_ids[idx]
 
         if self.transform is not None:
-            torch_image = self.transform(pil_image)
+            try:
+                torch_image = self.transform(pil_image)
+            except:
+                target_db = self.labels[idx]['bbox']
+                target_bb = self.labels[idx]['wireframe']
+                target_q = self.labels[idx]['q']
+                target_r = self.labels[idx]['r']
+                target = target_q, target_r, target_bb, target_db
+                torch_image, target = self.transform()(pil_image, target, self.input_size)
         else:
             torch_image = pil_image
 

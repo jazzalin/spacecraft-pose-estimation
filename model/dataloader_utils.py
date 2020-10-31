@@ -195,7 +195,10 @@ def visualize_tar2(img, target, size, factor=1, bbox=False, db=False, ax=None):
             ax = plt.gca()
         ax.imshow(img)
 
-        target_q, target_r, target_bb, target_db = target
+        target_q = target[:4]
+        target_r = target[4:7]
+        target_db = target[7:11] # detection box
+        target_bb = target[11:] # wireframe
 
         xa, ya = project(target_q, target_r, K, axes_vertices)
         xa, ya = scalePoseVector(xa,ya,factor)
@@ -203,14 +206,14 @@ def visualize_tar2(img, target, size, factor=1, bbox=False, db=False, ax=None):
         ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
         ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')              
 
-        if db == True:
+        if db == True: # detection box
             x_min, y_min, x_max, y_max = target_db
             ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
             ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
             ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
             ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
 
-        if bbox == True:
+        if bbox == True: # wireframe
             xa = [target_bb[i] for i in range(0, 16, 2)]
             ya = [target_bb[i] for i in range(1, 16, 2)]
             ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
@@ -290,52 +293,39 @@ class SpeedDataset(Dataset):
             y = self.sample_ids[idx]
 
         if self.transform is not None:
-            try:
-                torch_image = self.transform(pil_image)
-            except:
-                target_db = self.labels[idx]['bbox']
-                target_bb = self.labels[idx]['wireframe']
-                target_q = self.labels[idx]['q']
-                target_r = self.labels[idx]['r']
-                target = target_q, target_r, target_bb, target_db
-                torch_image, target = self.transform()(pil_image, target, self.input_size)
+            torch_image, y = self.transform(pil_image, y)
         else:
             torch_image = pil_image
 
         return torch_image, y
     
-    def visualize_output(self, img, label, t, att, bbox=False):
+    def visualize_output(self, img, t, att, ax=None, bbox=False):
         """ Visualizing image, with ground truth pose with axes projected to training image. """
 
-        # if ax is None:
-        #     ax = plt.gca()
-        fig, ax = plt.subplots(1, 2)
-        atts = [label[:4], att]
-        ts = [label[4:7], t]
+        if ax is None:
+            ax = plt.gca()
 
-        for i in range(2):
-            # fig.add_subplot(2, 1, i+1)
-            ax[i].imshow(img)
+        ax.imshow(img)
 
-            xa, ya = project(atts[i], ts[i], self.camera.K, self.axes_vertices)
-            ax[i].arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
-            ax[i].arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
-            ax[i].arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')
+        xa, ya = project(att, t, self.camera.K, self.axes_vertices)
+        ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
+        ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
+        ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')
 
-            if bbox:
-                xa, ya = project(atts[i], ts[i], self.camera.K, self.wireframe_vertices)
-                ax[i].arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+        if bbox:
+            xa, ya = project(att, t, self.camera.K, self.wireframe_vertices)
+            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
 
-                ax[i].arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
 
-                ax[i].arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
-                ax[i].arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
         return

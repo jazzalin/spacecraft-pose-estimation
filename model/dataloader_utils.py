@@ -18,17 +18,19 @@ class Camera:
     """" Utility class for accessing camera parameters. """
 
     def __init__(self, img_size=(1920,1200), input_size=(256,256)):
-        fx = 0.0176  # focal length[m]
-        fy = 0.0176  # focal length[m]
-        nu = 1920  # number of horizontal[pixels]
-        nv = 1200  # number of vertical[pixels]
-        ppx = 5.86e-6  # horizontal pixel pitch[m / pixel]
-        ppy = ppx  # vertical pixel pitch[m / pixel]
+        self.input_size = input_size
+        fx = 0.0176     # focal length[m]
+        fy = 0.0176     # focal length[m]
+        self.nu = 1920  # number of horizontal[pixels]
+        self.nv = 1200  # number of vertical[pixels]
+        ppx = 5.86e-6   # horizontal pixel pitch[m / pixel]
+        ppy = ppx       # vertical pixel pitch[m / pixel]
         fpx = fx / ppx  # horizontal focal length[pixels]
         fpy = fy / ppy  # vertical focal length[pixels]
-        k = [[fpx,   0, nu / 2],
-            [0,   fpy, nv / 2],
-            [0,     0,      1]]
+
+        k = [[fpx,   0, self.nu/2],
+            [   0, fpy, self.nv/2],
+            [   0,   0,         1]]
         scale = np.array([[input_size[0]/img_size[0], 0, 0],
                           [0, input_size[1]/img_size[1], 0],
                           [0, 0, 1]])
@@ -114,46 +116,6 @@ def project(q, r, K, points):
         x, y = (points_image_plane[0], points_image_plane[1])
         return x, y
 
-def visualize_tar(img, target, ax=None):
-        """ Visualizing image, with ground truth pose with axes projected to training image. """
-
-        # img, _ = self[idx]
-        # target = self.labels[idx]
-
-        if ax is None:
-            ax = plt.gca()
-        ax.imshow(img)        
-
-        if len(target) == 4:
-            x_min, y_min, x_max, y_max = target
-            ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
-
-        elif len(target) == 16:
-            xa = [target[i] for i in range(0, 16, 2)]
-            ya = [target[i] for i in range(1, 16, 2)]
-            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
-
-            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
-
-            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
-
-        else:
-            print("Target error")
-
-        return
-
 def scalePoseVector(xa, ya, factor):
     # red - x, green - y, blue - z
     # input format: xa contains four x-coordinates (origin, x, y, z)
@@ -164,75 +126,6 @@ def scalePoseVector(xa, ya, factor):
         ya[i] = (ya[i] - ya[0]) * factor + ya[0]
 
     return xa, ya
-
-
-def visualize_tar2(img, target, size, factor=1, bbox=False, db=False, ax=None):
-        """ Visualizing image, with ground truth pose with axes projected to training image. """
-
-        # img, _ = self[idx]
-        # target = self.labels[idx]
-
-        fx = 0.0176  # focal length[m]
-        fy = 0.0176  # focal length[m]
-        nu = 1920  # number of horizontal[pixels]
-        nv = 1200  # number of vertical[pixels]
-        ppx = 5.86e-6  # horizontal pixel pitch[m / pixel]
-        ppy = ppx  # vertical pixel pitch[m / pixel]
-        fpx = fx / ppx  # horizontal focal length[pixels]
-        fpy = fy / ppy  # vertical focal length[pixels]
-        k = [[fpx,   0, nu / 2],
-            [0,   fpy, nv / 2],
-            [0,     0,      1]]
-        img_size=(1920,1200)
-        scale = np.array([[size[0]/img_size[0], 0, 0],
-                      [0, size[1]/img_size[1], 0],
-                      [0, 0, 1]])
-        K = np.dot(scale, np.array(k))
-        # K = np.array(k)
-        axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
-
-        if ax is None:
-            ax = plt.gca()
-        ax.imshow(img)
-
-        target_q = target[:4]
-        target_r = target[4:7]
-        target_db = target[7:11] # detection box
-        target_bb = target[11:] # wireframe
-
-        xa, ya = project(target_q, target_r, K, axes_vertices)
-        xa, ya = scalePoseVector(xa,ya,factor)
-        ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
-        ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
-        ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')              
-
-        if db == True: # detection box
-            x_min, y_min, x_max, y_max = target_db
-            ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
-            ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
-
-        if bbox == True: # wireframe
-            xa = [target_bb[i] for i in range(0, 16, 2)]
-            ya = [target_bb[i] for i in range(1, 16, 2)]
-            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
-
-            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
-
-            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
-            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
-
-
-        return
 
 
 class SpeedDataset(Dataset):
@@ -270,9 +163,10 @@ class SpeedDataset(Dataset):
                             [0.37, 0.285, 0.295, 1],[-0.37, 0.285, 0.295, 1],[-0.37, -0.285, 0.295, 1],[0.37, -0.285, 0.295, 1]]) 
         self.axes_vertices = np.array([[0, 0, 0, 1],[1, 0, 0, 1],[0, 1, 0, 1],[0, 0, 1, 1]])
 
-        self.input_size = input_size
-        # Camera model
-        self.camera = Camera(input_size=self.input_size)
+        if self.transform is not None:
+            self.input_size = self.transform.transforms[0].size
+        else:
+            self.input_size = input_size
     
 
     def __len__(self):
@@ -329,3 +223,45 @@ class SpeedDataset(Dataset):
             ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
         return
+
+
+    def visualize(self, img, target, factor=1, ax=None, bbox=False):
+        """ Visualizing image, with ground truth pose with axes projected to training image. """
+
+        if ax is None:
+            ax = plt.gca()
+
+        ax.imshow(img)
+       
+        cP = (self.transform.transforms[0].cx, self.transform.transforms[0].cy)
+        cropSize = self.transform.transforms[0].cropSize
+        self.camera = Camera(img_size=(cropSize,cropSize), input_size=self.input_size)
+        self.camera.K[0][2] = (self.camera.nu/2 + cropSize/2 - cP[0]) * self.camera.input_size[0] / cropSize
+        self.camera.K[1][2] = (self.camera.nv/2 + cropSize/2 - cP[1]) * self.camera.input_size[1] / cropSize
+
+        target_q = target[:4]
+        target_r = target[4:7]
+        xa, ya = project(target_q, target_r, self.camera.K, self.axes_vertices)
+        xa, ya = scalePoseVector(xa, ya, factor)
+        ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
+        ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
+        ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')
+
+        if bbox:
+            xa, ya = project(target_q, target_r, self.camera.K, self.wireframe_vertices)
+            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7], head_width=None, head_length=None, color='lime')
+
+            ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
+            ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
+        return
+

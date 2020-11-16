@@ -90,7 +90,7 @@ def dcm_to_euler321(dcm):
     th_1 = np.arctan2(dcm[0][1],dcm[0][0])
     th_3 = np.arctan2(dcm[1][2],dcm[2][2])
 
-    return th_1, th_2, th_3
+    return np.asarray([th_1, th_2, th_3])
 
 def euler321_to_dcm(th_1, th_2, th_3):
     dcm = np.zeros((3, 3))
@@ -113,6 +113,20 @@ def dcm_to_q(dcm):
     q3 = (dcm[0][1]-dcm[1][0])/(4*q0)
 
     return [q0, q1, q2, q3]
+
+def eulerLoss(e_gt, e_pred): # Euler angles in radians
+    e_pred = [i - ((i+np.pi) // (2*np.pi))*(2*np.pi) for i in e_pred]
+    print("e_gt:", e_gt)
+    print("e_pred:", e_pred)
+    loss = 0
+    for i in range(0,3):
+        diff = np.abs(e_gt[i] - e_pred[i])
+        if diff > np.pi:
+            diff = 2*np.pi - diff
+        print("diff: ", diff)
+        loss += diff
+
+    return loss
 
 
 def main():
@@ -158,10 +172,13 @@ def main():
     )
 
     # TEST
-    sample, target = training_dataset[4]
+    sample, target = training_dataset[14]
     image1, label1 = JointRescrop((256, 256))(tF.to_pil_image(sample), target.numpy())
     training_dataset.visualize(image1, label1, factor=0.6, bbox=True)
-    
+    # plt.show()
+    print("label1: ", label1)
+    print("tytpe", type(label1))
+    print("tytpe", np.shape(label1))
     target_q = label1[:4]
     target_r = label1[4:7]
 
@@ -171,7 +188,7 @@ def main():
     dcm = quat2dcm(target_q)
     print("dcm:", dcm)
 
-    theta_1, theta_2, theta_3 = dcm_to_euler321(dcm)
+    theta_1, theta_2, theta_3 = dcm_to_euler321(dcm) # Radians
 
     print("th1: ", np.rad2deg(theta_1))
     print("th2: ", np.rad2deg(theta_2))
@@ -183,7 +200,23 @@ def main():
     q = dcm_to_q(dcm)
     print("q: ", q)
 
-    # plt.show()
+    e_gt = [theta_1, theta_2, theta_3] # Radians
+    e_pr = [np.deg2rad(1135), np.deg2rad(-662), np.deg2rad(77)] # Radians
+
+    print("break")
+    dcm = euler321_to_dcm(e_pr[0], e_pr[1], e_pr[2])
+    # q = np.asarray(dcm_to_q(dcm))
+    label1[:4] = q
+    print("label1: ", label1)
+    # print("q: ", q)
+    # print("r: ", target_r)
+    # pred = q, target_r
+
+    loss = eulerLoss(e_gt, e_pr)    # Radians [0,3*np.pi]
+    print("loss: ", loss)
+    training_dataset.visualize(image1, label1, factor=0.55, bbox=True)
+
+    plt.show()
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ import torchvision.models as models
 class Camera:
     """" Utility class for accessing camera parameters. """
 
-    def __init__(self, img_size=(1920,1200), input_size=(256,256)):
+    def __init__(self, img_size=(1920,1200), input_size=(1920, 1200)):
         self.input_size = input_size
         fx = 0.0176     # focal length[m]
         fy = 0.0176     # focal length[m]
@@ -188,13 +188,22 @@ class SpeedDataset(Dataset):
 
         if self.transform is not None:
             torch_image, y = self.transform(pil_image, y)
+            # Retrieve modified camera intrinsics as a result of transformation
+            cP = (self.transform.transforms[0].cx, self.transform.transforms[0].cy)
+            cropSize = self.transform.transforms[0].cropSize
+            camera = Camera(img_size=(cropSize,cropSize), input_size=self.input_size)
+            camera.K[0][2] = (camera.nu/2 + cropSize/2 - cP[0]) * camera.input_size[0] / cropSize
+            camera.K[1][2] = (camera.nv/2 + cropSize/2 - cP[1]) * camera.input_size[1] / cropSize
+            K = camera.K
         else:
             torch_image = pil_image
+            camera = Camera()
+            K = camera.K
 
-        return torch_image, y
+        return torch_image, y, K
         
 
-    def visualize(self, img, target, factor=1, ax=None, bbox=False):
+    def visualize(self, img, target, K, factor=1, ax=None, bbox=False, dbox=False):
         """ Visualizing image, with ground truth pose with axes projected to training image. """
 
         if ax is None:
@@ -202,22 +211,18 @@ class SpeedDataset(Dataset):
 
         ax.imshow(img)
        
-        cP = (self.transform.transforms[0].cx, self.transform.transforms[0].cy)
-        cropSize = self.transform.transforms[0].cropSize
-        self.camera = Camera(img_size=(cropSize,cropSize), input_size=self.input_size)
-        self.camera.K[0][2] = (self.camera.nu/2 + cropSize/2 - cP[0]) * self.camera.input_size[0] / cropSize
-        self.camera.K[1][2] = (self.camera.nv/2 + cropSize/2 - cP[1]) * self.camera.input_size[1] / cropSize
 
         target_q = target[:4]
         target_r = target[4:7]
-        xa, ya = project(target_q, target_r, self.camera.K, self.axes_vertices)
+        xa, ya = project(target_q, target_r, K, self.axes_vertices)
         xa, ya = scalePoseVector(xa, ya, factor)
         ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=10, color='r')
         ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] - ya[0], head_width=10, color='g')
         ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] - ya[0], head_width=10, color='b')
+        origin = [xa[0], ya[0]]
 
         if bbox:
-            xa, ya = project(target_q, target_r, self.camera.K, self.wireframe_vertices)
+            xa, ya = project(target_q, target_r, K, self.wireframe_vertices)
             ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2], head_width=None, head_length=None, color='lime')
@@ -232,5 +237,15 @@ class SpeedDataset(Dataset):
             ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2], head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3], head_width=None, head_length=None, color='lime')
-        return
+        
+        if dbox:
+            x_min, y_min, x_max, y_max = target[7:11]
+            x_c = (x_min + x_max)/2
+            y_c = (y_min + y_max)/2
+            
+            ax.arrow(x_min, y_min, x_max-x_min, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_min, 0, y_max-y_min, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_max, y_max, x_min-x_max, 0, head_width=None, head_length=None, color='lime')
+            ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None, head_length=None, color='lime')
+        return origin
 

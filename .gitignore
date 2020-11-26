@@ -136,3 +136,4 @@ __pycache__
 speed/
 speed_wireframe/
 weights/
+*.pth

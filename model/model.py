@@ -47,9 +47,9 @@ class MangoNet(nn.Module):
     
     def forward(self, input, gt=None):
         # Input size: 256x256
-        # x = F.relu(self.resnet(input)) # NOTE: should we add activation after resnet?
         x = self.resnet(input)
         x = F.relu(self.bn1(self.conv6(x)))
+        
         # Reshape after bottleneck
         x_t = x.view(-1, 3*3*1024)
         x_att = x.view(-1, 3*3*1024)

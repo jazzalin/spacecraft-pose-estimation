@@ -17,4 +17,6 @@ class Config:
     TRAIN_BS=16
     TEST_BS=1
 
-    BETA=1
+    EPOCH=200
+    PATIENCE=10
+    BETA=7

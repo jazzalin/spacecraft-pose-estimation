@@ -1,6 +1,7 @@
 # Dataloader for ESA's Kelvins pose estimation competition.
 # https://gitlab.com/EuropeanSpaceAgency/speed-utils
 import numpy as np
+import random
 import json
 import os
 from PIL import Image, ImageDraw
@@ -70,6 +71,8 @@ def scalePoseVector(xa, ya, factor):
 
 
 # POSE TRANSFORMATION UTILS
+
+# UNIT QUATERNIONS / EULER PARAMETERS
 def quat2dcm(q):
     """ Computing direction cosine matrix from quaternion, adapted from PyNav. """
 
@@ -98,10 +101,27 @@ def quat2dcm(q):
 
     return dcm
 
+def q2dcm(q):
+    dcm = torch.zeros(q.shape[0],3,3).cuda()
+    q0 = q[:, [0]]
+    q1 = q[:, [1]]
+    q2 = q[:, [2]]
+    q3 = q[:, [3]]
+    
+    dcm[:, [0], [0]] = 2 * q0 ** 2 - 1 + 2 * q1 ** 2
+    dcm[:, [1], [1]] = 2 * q0 ** 2 - 1 + 2 * q2 ** 2
+    dcm[:, [2], [2]] = 2 * q0 ** 2 - 1 + 2 * q3 ** 2
 
-def q_to_mrp(q):
-    return q[1:4] / (1 + q[0])
+    dcm[:, [0], [1]] = 2 * q1 * q2 + 2 * q0 * q3
+    dcm[:, [0], [2]] = 2 * q1 * q3 - 2 * q0 * q2
 
+    dcm[:, [1], [0]] = 2 * q1 * q2 - 2 * q0 * q3
+    dcm[:, [1], [2]] = 2 * q2 * q3 + 2 * q0 * q1
+
+    dcm[:, [2], [0]] = 2 * q1 * q3 + 2 * q0 * q2
+    dcm[:, [2], [1]] = 2 * q2 * q3 - 2 * q0 * q1
+    
+    return dcm
 
 def dcm_to_q(dcm):
     q0 = -0.5*np.sqrt(dcm[0][0]+dcm[1][1]+dcm[2][2]+1)
@@ -110,6 +130,17 @@ def dcm_to_q(dcm):
     q3 = (dcm[0][1]-dcm[1][0])/(4*q0)
 
     return [q0, q1, q2, q3]
+
+# def dcm_to_q(dcm):
+#     q0 = -0.5*torch.sqrt(dcm[:, [0], [0]]+dcm[:, [1], [1]]+dcm[:, [2], [2]]+1)
+#     q1 = (dcm[:, [1], [2]]-dcm[:, [2], [1]])/(4*q0)
+#     q2 = (dcm[:, [2], [0]]-dcm[:, [0], [2]])/(4*q0)
+#     q3 = (dcm[:, [0], [1]]-dcm[:, [1], [0]])/(4*q0)
+#     return torch.cat((q0, q1, q2, q3), 1)
+
+
+def q_to_mrp(q):
+    return q[1:4] / (1 + q[0])
 
 
 def mrp_to_q(sigma):
@@ -147,6 +178,7 @@ def quat2dcm_batch(q):
     return dcm
 
 
+# EULER ANGLES
 def dcm_to_euler321_batch(dcm):
     bs = int(dcm.shape[0]/3)
 
@@ -179,6 +211,35 @@ def euler321_to_dcm(th_1, th_2, th_3):
     return dcm
 
 
+# PRINCIPAL ROTATION VECTORS
+def q_to_prv(q):
+    a = q[:,[0]]
+    x = q[:, 1:]
+    theta = 2 * torch.atan2(torch.norm(x), a)
+    theta[theta > np.pi] -= 2*np.pi
+#     idx = (theta != 0).squeeze()
+    v = x / torch.sin(theta/2)
+#     v[~idx] = 0
+    return theta*v
+
+
+def skew_symmetric(prv):
+    """
+    Transforms prv output by network into skew symmetric matrix
+    """
+    ssm = torch.zeros(prv.shape[0],3,3).cuda()
+    ssm[:, [0], [1]] = -prv[:, [2]]
+    ssm[:, [0], [2]] = prv[:, [1]]
+    ssm[:, [1], [0]] = prv[:, [2]]
+    ssm[:, [1], [2]] = -prv[:, [0]]
+    ssm[:, [2], [0]] = -prv[:, [1]]
+    ssm[:, [2], [1]] = prv[:, [0]]
+    
+    return ssm
+
+
+
+# TRANSLATION
 def origin_reg_conversion(label, K, t_out):
     u = (label[4:11][0] + label[4:11][2]) / 2.0
     v = (label[4:11][1] + label[4:11][3]) / 2.0
@@ -206,6 +267,8 @@ class SpeedDataset(Dataset):
         with open(os.path.join(annotations_root, split + '.json'), 'r') as f:
             label_list = json.load(f)
 
+       # Reindexing
+        # random.shuffle(label_list)
         self.sample_ids = [label['filename'] for label in label_list]
 
         self.train = split == 'train'

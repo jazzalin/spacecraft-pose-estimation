@@ -19,4 +19,15 @@ class Config:
 
     EPOCH=200
     PATIENCE=10
-    BETA=7
+    BETA=1
+
+    # Attitude regression parameters
+    ATT="prv" # Options: "ep", "prv", "ea"
+
+    # Euler Parameters (EP)
+    EP_LR_T=0.1
+    EP_LR_A=0.001
+
+    # Principal Rotation Vectors (PRV)
+    PRV_LR_T=0.1
+    PRV_LR_A=0.001

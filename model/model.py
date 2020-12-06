@@ -67,3 +67,52 @@ class MangoNet(nn.Module):
 
         return x_t, x_att
         # return x_att
+
+
+class TangoNet(nn.Module):
+    def __init__(self, criterion=None):
+        super(TangoNet, self).__init__()
+
+        # Resnet backbone
+        self.resnet = nn.Sequential(*list(resnet.children())[:-2]) 
+        self.conv6 = nn.Conv2d(512, 1024, 3, 2)
+        self.bn1 = nn.BatchNorm2d(1024)
+        
+        # Translation branch: t = [tx, ty, tz]
+        self.t_branch = nn.Sequential(nn.Linear(3*3*1024, 1024),
+#                                       nn.BatchNorm1d(1024),
+                                      nn.ReLU(inplace=True),
+                                      nn.Dropout(),
+                                      nn.Linear(1024, 3))
+
+
+
+        # Attitude branch: q = [q0, q1, q2, q3]
+        self.att_branch = nn.Sequential(nn.Linear(3*3*1024, 4096),
+#                                         nn.BatchNorm1d(4096),
+                                        nn.ReLU(inplace=True),
+                                        nn.Dropout(),
+                                        nn.Linear(4096, 500),
+#                                         nn.BatchNorm1d(500),
+                                        nn.ReLU(inplace=True),
+                                        nn.Linear(500, 3),
+#                                         nn.Dropout()
+                                        )
+    
+    def forward(self, input, gt=None):
+        # Input size: 256x256
+        x = self.resnet(input)
+        x = F.relu(self.bn1(self.conv6(x)))
+        # Reshape after bottleneck
+        x_t = x.view(-1, 3*3*1024)
+        x_att = x.view(-1, 3*3*1024)
+
+        # t regression
+        x_t = self.t_branch(x_t)
+
+        # q regression
+        x_att = np.pi*torch.tanh(self.att_branch(x_att))
+
+
+
+        return x_t, x_att

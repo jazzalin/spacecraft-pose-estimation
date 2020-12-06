@@ -101,7 +101,7 @@ def quat2dcm(q):
 
     return dcm
 
-def q2dcm(q):
+def ep2dcm(q):
     dcm = torch.zeros(q.shape[0],3,3).cuda()
     q0 = q[:, [0]]
     q1 = q[:, [1]]
@@ -131,12 +131,12 @@ def dcm_to_q(dcm):
 
     return [q0, q1, q2, q3]
 
-# def dcm_to_q(dcm):
-#     q0 = -0.5*torch.sqrt(dcm[:, [0], [0]]+dcm[:, [1], [1]]+dcm[:, [2], [2]]+1)
-#     q1 = (dcm[:, [1], [2]]-dcm[:, [2], [1]])/(4*q0)
-#     q2 = (dcm[:, [2], [0]]-dcm[:, [0], [2]])/(4*q0)
-#     q3 = (dcm[:, [0], [1]]-dcm[:, [1], [0]])/(4*q0)
-#     return torch.cat((q0, q1, q2, q3), 1)
+def dcm_to_ep(dcm):
+    q0 = -0.5*torch.sqrt(dcm[:, [0], [0]]+dcm[:, [1], [1]]+dcm[:, [2], [2]]+1)
+    q1 = (dcm[:, [1], [2]]-dcm[:, [2], [1]])/(4*q0)
+    q2 = (dcm[:, [2], [0]]-dcm[:, [0], [2]])/(4*q0)
+    q3 = (dcm[:, [0], [1]]-dcm[:, [1], [0]])/(4*q0)
+    return torch.cat((q0, q1, q2, q3), 1)
 
 
 def q_to_mrp(q):
@@ -398,6 +398,12 @@ class SpeedDataset(Dataset):
                      head_length=None, color='lime')
             ax.arrow(x_min, y_max, 0, y_min-y_max, head_width=None,
                      head_length=None, color='lime')
+
+            # circle1 = plt.Circle((x_c, y_c), 5.0, color='r')
+            # circle2 = plt.Circle((xa[0], ya[0]), 5.0, color='b')
+            # ax.add_artist(circle1)
+            # ax.add_artist(circle2)
+
         return origin
 
 

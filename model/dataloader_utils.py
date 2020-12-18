@@ -284,14 +284,15 @@ class SpeedDataset(Dataset):
             else:
                 self.sample_ids = self.sample_ids[:split_idx]
                 self.labels = self.labels[:split_idx]
+        else:
+            self.labels = [{'bbox': label['bbox']} for label in label_list]
 
         self.image_root = os.path.join(speed_root, 'images', split)
 
         self.transform = transform
         self.wireframe_vertices = np.array([[0.37, 0.285, 0, 1], [-0.37, 0.285, 0, 1], [-0.37, -0.285, 0, 1], [0.37, -0.285, 0, 1],
                                             [0.37, 0.285, 0.295, 1], [-0.37, 0.285, 0.295, 1], [-0.37, -0.285, 0.295, 1], [0.37, -0.285, 0.295, 1]])
-        self.axes_vertices = np.array(
-            [[0, 0, 0, 1], [1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]])
+        self.axes_vertices = np.array([[0, 0, 0, 1], [1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]])
 
         if self.transform is not None:
             self.input_size = self.transform.transforms[0].size
@@ -314,7 +315,7 @@ class SpeedDataset(Dataset):
                 'r'], self.labels[idx]['bbox'], self.labels[idx]['wireframe']
             y = np.concatenate([q, r, bbox, wireframe])
         else:
-            y = self.sample_ids[idx]
+            y = np.concatenate([np.zeros(7,), self.labels[idx]['bbox'], np.zeros(16,)])
 
         if self.transform is not None:
             torch_image, y = self.transform(pil_image, y)
@@ -344,46 +345,49 @@ class SpeedDataset(Dataset):
 
         ax.imshow(img)
 
-        target_q = target[:4]
-        target_r = target[4:7]
-        xa, ya = project(target_q, target_r, K, self.axes_vertices)
-        xa, ya = scalePoseVector(xa, ya, factor)
-        ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] -
-                 ya[0], head_width=10, color='r')
-        ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] -
-                 ya[0], head_width=10, color='g')
-        ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] -
-                 ya[0], head_width=10, color='b')
-        origin = [xa[0], ya[0]]
+        if self.train:
+            target_q = target[:4]
+            target_r = target[4:7]
+            xa, ya = project(target_q, target_r, K, self.axes_vertices)
+            xa, ya = scalePoseVector(xa, ya, factor)
+            ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] -
+                    ya[0], head_width=10, color='r')
+            ax.arrow(xa[0], ya[0], xa[2] - xa[0], ya[2] -
+                    ya[0], head_width=10, color='g')
+            ax.arrow(xa[0], ya[0], xa[3] - xa[0], ya[3] -
+                    ya[0], head_width=10, color='b')
+            origin = [xa[0], ya[0]]
+        else:
+            origin = [-1, -1] # not available for test set
 
         if bbox:
             xa, ya = project(target_q, target_r, K, self.wireframe_vertices)
             ax.arrow(xa[0], ya[0], xa[1] - xa[0], ya[1] - ya[0],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[1], ya[1], xa[2] - xa[1], ya[2] - ya[1],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[2], ya[2], xa[3] - xa[2], ya[3] - ya[2],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[0] - xa[3], ya[0] - ya[3],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
 
             ax.arrow(xa[4], ya[4], xa[5] - xa[4], ya[5] - ya[4],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[5], ya[5], xa[6] - xa[5], ya[6] - ya[5],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[6], ya[6], xa[7] - xa[6], ya[7] - ya[6],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[7], ya[7], xa[4] - xa[7], ya[4] - ya[7],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
 
             ax.arrow(xa[0], ya[0], xa[4] - xa[0], ya[4] - ya[0],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[1], ya[1], xa[5] - xa[1], ya[5] - ya[1],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[2], ya[2], xa[6] - xa[2], ya[6] - ya[2],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
             ax.arrow(xa[3], ya[3], xa[7] - xa[3], ya[7] - ya[3],
-                     head_width=None, head_length=None, color='lime')
+                    head_width=None, head_length=None, color='lime')
 
         if dbox:
             x_min, y_min, x_max, y_max = target[7:11]
@@ -403,7 +407,7 @@ class SpeedDataset(Dataset):
             # circle2 = plt.Circle((xa[0], ya[0]), 5.0, color='b')
             # ax.add_artist(circle1)
             # ax.add_artist(circle2)
-
+            
         return origin
 
 
